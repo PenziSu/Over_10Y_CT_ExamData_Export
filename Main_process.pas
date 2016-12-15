@@ -158,11 +158,11 @@ begin
   log_msg({'順序'+}'月份'+',身分'+',來源'+',開單日期'+',報到日期'+',病歷號'
         +',病患姓名'+',醫令碼'+',健保碼'+',檢查敘述'+',儀器代號'+',檢查單號'
         +',儀器類別'+',DUPL'+{',SEQ'+',錯誤碼'+}',申報類別'+',案件分類'+',總序號'
-        ,'D:\ym_source\cch\bin\mark\Output_Old_CT_Exam_Data\log-normal.csv');
+        ,'D:\ym_source\cch\bin\mark\Over_10YearCT_Exam_Data_Export\log-normal.csv');
   log_msg({'順序'+}'月份'+',身分'+',來源'+',開單日期'+',報到日期'+',病歷號'
         +',病患姓名'+',醫令碼'+',健保碼'+',檢查敘述'+',儀器代號'+',檢查單號'
         +',儀器類別'+',DUPL'+{',SEQ'+',錯誤碼'+}',申報類別'+',案件分類'+',總序號'
-        ,'D:\ym_source\cch\bin\mark\Output_Old_CT_Exam_Data\log-error.csv');
+        ,'D:\ym_source\cch\bin\mark\Over_10YearCT_Exam_Data_Export\log-error.csv');
   try
     while (IXR1.ERR =0) and (IXR1.DATE < s2i(EndDate)) do
     begin
