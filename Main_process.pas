@@ -155,13 +155,13 @@ begin
   IXR1.DATE := StrToInt(StartDate);
   SETKEYNO(IXR1.DRIVE,IXR1.FD,2);
   READ_IXRYREG1(IXR1,27);
-  log_msg('順序'+',月份'+',身分'+',來源'+',開單日期'+',報到日期'+',病歷號'
+  log_msg({'順序'+}'月份'+',身分'+',來源'+',開單日期'+',報到日期'+',病歷號'
         +',病患姓名'+',醫令碼'+',健保碼'+',檢查敘述'+',儀器代號'+',檢查單號'
-        +',儀器類別'+',DUPL'+',SEQ'+',錯誤碼'+',申報類別'+',案件分類'+',總序號'
+        +',儀器類別'+',DUPL'+{',SEQ'+',錯誤碼'+}',申報類別'+',案件分類'+',總序號'
         ,'D:\ym_source\cch\bin\mark\Output_Old_CT_Exam_Data\log-normal.csv');
-  log_msg('順序'+',月份'+',身分'+',來源'+',開單日期'+',報到日期'+',病歷號'
+  log_msg({'順序'+}'月份'+',身分'+',來源'+',開單日期'+',報到日期'+',病歷號'
         +',病患姓名'+',醫令碼'+',健保碼'+',檢查敘述'+',儀器代號'+',檢查單號'
-        +',儀器類別'+',DUPL'+',SEQ'+',錯誤碼'+',申報類別'+',案件分類'+',總序號'
+        +',儀器類別'+',DUPL'+{',SEQ'+',錯誤碼'+}',申報類別'+',案件分類'+',總序號'
         ,'D:\ym_source\cch\bin\mark\Output_Old_CT_Exam_Data\log-error.csv');
   try
     while (IXR1.ERR =0) and (IXR1.DATE < s2i(EndDate)) do
@@ -202,8 +202,9 @@ begin
                                                     UpperCase(ixr1.DUPLICATE_NO),
                                                     iwl.CKIN_DATE,
                                                     i2s(StepByStep));
-                if not (_DtlfResult[0] = '') and not (_DtlfResult[3] = '') then
+                if not (_DtlfResult[0] = '') and not (_DtlfResult[3] = '') and (StepByStep = s2i(StepByStep_End)) then
                 begin
+                  _DtlfResult[0] := '11,12月檔都沒有';
                   Break;
                 end else
                 begin
@@ -241,8 +242,8 @@ begin
                   Post;
                 end;*)
 
-                log_msg(i2s(sn)
-                    +','+Copy(i2s(IXR1.DATE),0,5)
+                log_msg({i2s(sn)
+                    +','+}Copy(i2s(IXR1.DATE),0,5)
                     +','+get_pt_type(ixr1.PT_TYPE)
                     +','+IXR1.INP_OPD
                     +','+i2s(iwl.ORDER_DATE)
@@ -256,18 +257,18 @@ begin
                     +','+iwl.ACCESS_NO
                     +','+IWL.modality
                     +','+ixr1.DUPLICATE_NO
-                    +','+i2s(IXR1.seq)
-                    +','+i2s(iwl.err)
+                    //+','+i2s(IXR1.seq)
+                    //+','+i2s(iwl.err)
                     +','+_DtlfResult[0]
                     +','+_DtlfResult[1]
                     +','+_DtlfResult[2]
                     +','+_DtlfResult[3]
-                    ,'D:\ym_source\cch\bin\mark\Output_Old_CT_Exam_Data\log-normal.csv');
+                    ,'D:\ym_source\cch\bin\mark\Over_10YearCT_Exam_Data_Export\log-normal.csv');
               end else
               begin
                 Inc(err_sn);
-                log_msg(i2s(err_sn)
-                    +','+Copy(i2s(IXR1.DATE),0,5)
+                log_msg({i2s(err_sn)
+                    +','+}Copy(i2s(IXR1.DATE),0,5)
                     +','+get_pt_type(ixr1.PT_TYPE)
                     +','+IXR1.INP_OPD
                     +','+i2s(IXR1.date)
@@ -280,13 +281,13 @@ begin
                     +','+iwl.ACCESS_NO
                     +','+IWL.modality
                     +','+ixr1.DUPLICATE_NO
-                    +','+i2s(IXR1.seq)
-                    +','+i2s(iwl.err)
+                    //+','+i2s(IXR1.seq)
+                    //+','+i2s(iwl.err)
                     +','+_DtlfResult[0]
                     +','+_DtlfResult[1]
                     +','+_DtlfResult[2]
                     +','+_DtlfResult[3]
-                    ,'D:\ym_source\cch\bin\mark\Output_Old_CT_Exam_Data\log-error.csv');
+                    ,'D:\ym_source\cch\bin\mark\Over_10YearCT_Exam_Data_Export\log-error.csv');
               end;
               READ_IWORKLST(IWL,2);
             end;
