@@ -12,7 +12,8 @@ uses
   iworklst_ndm_u in '..\..\..\dm\iworklst_ndm_u.pas',
   idtlfa_dm_u in '..\..\..\dm\idtlfa_dm_u.pas' {IDTLFA_dm},
   mdtlfb_dm_u in '..\..\..\dm\mdtlfb_dm_u.pas' {MDTLFB_dm},
-  iprice_dm_u in '..\..\..\dm\iprice_dm_u.pas' {IPRICE_dm};
+  iprice_dm_u in '..\..\..\dm\iprice_dm_u.pas' {IPRICE_dm},
+  ipatinp_dm_u in '..\..\..\dm\ipatinp_dm_u.pas' {IPATINP_dm};
 
 {$R *.RES}
 
@@ -25,5 +26,6 @@ begin
   Application.CreateForm(TIDTLFA_dm, IDTLFA_dm);
   Application.CreateForm(TMDTLFB_dm, MDTLFB_dm);
   Application.CreateForm(TIPRICE_dm, IPRICE_dm);
+  Application.CreateForm(TIPATINP_dm, IPATINP_dm);
   Application.Run;
 end.

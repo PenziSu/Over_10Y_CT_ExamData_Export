@@ -5,7 +5,7 @@ interface
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs
   ,isysctl_ndm_u,session_dm_u,ixryreg2_dm_u,ixryreg1_dm_u,Shareutils,
-  StdCtrls,iworklst_ndm_u,DBClient,idtlfa_dm_u,mdtlfb_dm_u,iprice_dm_u;
+  StdCtrls,iworklst_ndm_u,DBClient,idtlfa_dm_u,mdtlfb_dm_u,iprice_dm_u,ipatinp_dm_u;
 
 type ConnectDB = class
  private
@@ -26,6 +26,7 @@ type SearchData = class
    function get_pt_type(pt_type:Integer) :string;
    function CheckIDTLFAandMDTLFB(PatientSource:string; PatientID,OPDate:Integer; DuplicateNo:string; ExamDate:Integer;MonthlyFileName:String):TStringArray;
    function OrderCodeToCorrCode(OrderCode:string):String;
+   function ConfirmForTheSameTreatment(PatientSource,PatientID,OrderDate,ExamDate:string) :string;
  public
 //  tmp : TClientDataSet;
   procedure UpdateClientDataSet(var DataSet:TClientDataSet; yyyy,mm,CHNL_NO:string);
@@ -41,6 +42,7 @@ var
   IDA :IDTLFA_REC;
   MDB :MDTLFB_REC;
   IPC :IPRICE_REC;
+  IIP :IPATINP_REC;
 
 procedure ConnectDB.OPEN_FILE();
 var
@@ -102,6 +104,17 @@ begin
     then MDB.FD := OPENFILE(MDB.DRIVE,MDB.FNAME,'INPUT')
     else ShowMessage('Get MDB FD Error!');
   end;
+
+  if (UpperCase(drive) = 'INP') or (UpperCase(drive) = 'ALL')
+  then begin
+    INIT_IPATINP(IIP);
+    IIP.DRIVE := 'MAS';
+    IIP.FNAME := 'IPATINP';
+    if INFOFILE(IIP.DRIVE,IIP.FNAME,'INPUT')
+    then IIP.FD := OPENFILE(IIP.DRIVE,IIP.FNAME,'INPUT')
+    else ShowMessage('Get IIP FD Error!');
+  end;
+
 end;
 
 procedure ConnectDB.CLOSE_FILE();
@@ -118,6 +131,11 @@ begin
   then begin
     CLOSFILE(IDA.DRIVE,IDA.FD);
     CLOSFILE(MDB.DRIVE,MDB.FD);
+  end;
+
+  if (UpperCase(drive) = 'INP') or (UpperCase(drive) = 'ALL')
+  then begin
+    CLOSFILE(IIP.DRIVE,IIP.FD);
   end;
 end;
 
@@ -155,13 +173,13 @@ begin
   IXR1.DATE := StrToInt(StartDate);
   SETKEYNO(IXR1.DRIVE,IXR1.FD,2);
   READ_IXRYREG1(IXR1,27);
-  log_msg({'順序'+}'月份'+',身分'+',來源'+',開單日期'+',報到日期'+',病歷號'
+  log_msg('順序'+',月份'+',身分'+',來源'+',開單日期'+',報到日期'+',病歷號'
         +',病患姓名'+',醫令碼'+',健保碼'+',檢查敘述'+',儀器代號'+',檢查單號'
-        +',儀器類別'+',DUPL'+{',SEQ'+',錯誤碼'+}',申報類別'+',案件分類'+',總序號'
+        +',儀器類別'+',DUPL'+',SEQ'+',錯誤碼'+',申報類別'+',案件分類'+',總序號'+',同療日期/出院日'
         ,'D:\ym_source\cch\bin\mark\Over_10YearCT_Exam_Data_Export\log-normal.csv');
-  log_msg({'順序'+}'月份'+',身分'+',來源'+',開單日期'+',報到日期'+',病歷號'
+  log_msg('順序'+',月份'+',身分'+',來源'+',開單日期'+',報到日期'+',病歷號'
         +',病患姓名'+',醫令碼'+',健保碼'+',檢查敘述'+',儀器代號'+',檢查單號'
-        +',儀器類別'+',DUPL'+{',SEQ'+',錯誤碼'+}',申報類別'+',案件分類'+',總序號'
+        +',儀器類別'+',DUPL'+',SEQ'+',錯誤碼'+',申報類別'+',案件分類'+',總序號'+',同療日期/出院日'
         ,'D:\ym_source\cch\bin\mark\Over_10YearCT_Exam_Data_Export\log-error.csv');
   try
     while (IXR1.ERR =0) and (IXR1.DATE < s2i(EndDate)) do
@@ -189,10 +207,7 @@ begin
                 _DtlfResult[_DtlfResultCount] := '';
               end;
 
-              (*Debug 特定檢查單號*)
-              if iwl.ACCESS_NO = 'X10511118492'
-              then Sleep(1000);
-
+              (*開始查詢指定月份檔案*)
               for StepByStep := s2i(StepByStep_Start) to s2i(StepByStep_End) do
               begin
                 (*取得[IDTLFA]&[MDTLFB]檔案內容*)
@@ -202,16 +217,49 @@ begin
                                                     UpperCase(ixr1.DUPLICATE_NO),
                                                     iwl.CKIN_DATE,
                                                     i2s(StepByStep));
-                if not (_DtlfResult[0] = '') and not (_DtlfResult[3] = '') and (StepByStep = s2i(StepByStep_End)) then
-                begin
-                  _DtlfResult[0] := '11,12月檔都沒有';
-                  Break;
-                end else
-                begin
-                  //Sleep(1000);
+                (*如果有資料就結束迴圈*)
+                if  (_DtlfResult[0] <> '')
+                and (_DtlfResult[1] <> '')
+                and (_DtlfResult[2] <> '')
+                then Break;
+
+                (*如果住院病患查詢結束沒有申報資料就查詢是否有出院日期*)
+                if (StepByStep = s2i(StepByStep_End))
+                and (_DtlfResult[0] = '')
+                and (UpperCase(IXR1.INP_OPD) = 'I')
+                then begin
+                   _DtlfResult[3] := '';
+                   IIP.CHART_NO := ixr1.chart_no;
+                   IIP.DUPLICATE_NO := '';
+                   SETKEYNO(IIP.DRIVE,IIP.FD,1);
+                   READ_IPATINP(IIP,17);
+                   while (IIP.ERR = 0) and (IIP.CHART_NO = ixr1.chart_no) do
+                   begin
+                     if (iwl.ORDER_DATE >= IIP.CKIN_DATE) then
+                     begin
+                       if (IIP.discharge_date > 0)
+                       then _DtlfResult[3] := i2s(IIP.discharge_date)
+                       else if (IIP.discharge_date = 0)
+                       then _DtlfResult[3] := '住院中';
+                     end;
+                   READ_IPATINP(IIP,2);
+                   end;
+
+                   if (IIP.ERR <> 0) then
+                   begin
+                     _DtlfResult[3] := i2s(IIP.ERR)+IIP.ERR_MSG+':'+i2s(IIP.CHART_NO);
+                   end;
                 end;
               end;
 
+              (*檢查輸出結果*)
+              if  (_DtlfResult[0] = '')
+              and (_DtlfResult[1] = '')
+              and (_DtlfResult[2] = '')
+              then
+              begin
+                _DtlfResult[0] := '11及12兩月檔案皆無資料';
+              end;
 
               if (IWL.CHART_NO = IXR1.CHART_NO)
               and (IWL.CKIN_DATE = ixr1.DATE)
@@ -220,15 +268,15 @@ begin
               and not (IWL.CODE = 'hp2103') {*外院片匯入*}
               and not (ixr1.PT_TYPE = 11)
               then begin
-                (*Inc(sn);
-                with DataSet do
+                Inc(sn);
+                {with DataSet do
                 begin
                   Append;
                   FieldByname('#').Value         := i2s(sn);
                   FieldByname('月份').Value      := Copy(i2s(IXR1.DATE),0,5);
                   FieldByname('身份').Value      := get_pt_type(ixr1.PT_TYPE);
                   FieldByname('門診/住院').Value := IXR1.INP_OPD;
-                  FieldByname('報到日期').Value  := i2s(IXR1.date);
+                  FieldByname('檢查日期').Value  := i2s(IXR1.date);
                   FieldByname('病歷號').Value    := i2s(ixr1.chart_no);
                   FieldByname('病患姓名').Value  := ixr1.PT_NAME;
                   FieldByname('醫令碼').Value    := iwl.CODE;
@@ -236,39 +284,39 @@ begin
                   FieldByname('儀器代碼').Value  := TransferCTChnlCode(Copy(ixr2.FILLER,2,2));
                   FieldByname('檢查單號').Value  := iwl.ACCESS_NO;
                   FieldByname('儀器類別').Value  := IWL.modality;
-                  {FieldByname('申報類別').Value  := _DtlfResult[0];
+                  FieldByname('申報類別').Value  := _DtlfResult[0];
                   FieldByname('案件分類').Value  := _DtlfResult[1];
-                  FieldByname('總序號').Value    := _DtlfResult[2];}
+                  FieldByname('總序號').Value    := _DtlfResult[2];
                   Post;
-                end;*)
+                end;}
 
-                log_msg({i2s(sn)
-                    +','+}Copy(i2s(IXR1.DATE),0,5)
-                    +','+get_pt_type(ixr1.PT_TYPE)
-                    +','+IXR1.INP_OPD
-                    +','+i2s(iwl.ORDER_DATE)
-                    +','+i2s(IXR1.date)
-                    +','+i2s(ixr1.chart_no)
-                    +','+ixr1.PT_NAME
-                    +','+iwl.CODE
-                    +','+OrderCodeToCorrCode(iwl.CODE)
-                    +','+iwl.name
-                    +','+TransferCTChnlCode(Copy(ixr2.FILLER,2,2))
-                    +','+iwl.ACCESS_NO
-                    +','+IWL.modality
-                    +','+ixr1.DUPLICATE_NO
-                    //+','+i2s(IXR1.seq)
-                    //+','+i2s(iwl.err)
-                    +','+_DtlfResult[0]
-                    +','+_DtlfResult[1]
-                    +','+_DtlfResult[2]
-                    +','+_DtlfResult[3]
+                log_msg(i2s(sn)                                    //順序
+                    +','+Copy(i2s(IXR1.DATE),0,5)                  //月份
+                    +','+get_pt_type(ixr1.PT_TYPE)                 //身分
+                    +','+IXR1.INP_OPD                              //來源
+                    +','+i2s(iwl.ORDER_DATE)                       //開單日期
+                    +','+i2s(IXR1.date)                            //檢查日期
+                    +','+i2s(ixr1.chart_no)                        //病歷號
+                    +','+ixr1.PT_NAME                              //病患姓名
+                    +','+iwl.CODE                                  //醫令碼
+                    +','+OrderCodeToCorrCode(iwl.CODE)             //健保碼
+                    +','+iwl.name                                  //檢查敘述
+                    +','+TransferCTChnlCode(Copy(ixr2.FILLER,2,2)) //CT切數
+                    +','+iwl.ACCESS_NO                             //檢查單號
+                    +','+IWL.modality                              //儀器類別
+                    +','+ixr1.DUPLICATE_NO                         //重覆碼
+                    +','+i2s(IXR1.seq)                             //序列號
+                    +','+i2s(iwl.err)                              //錯誤碼
+                    +','+_DtlfResult[0]                            //申報類別
+                    +','+_DtlfResult[1]                            //案件分類
+                    +','+_DtlfResult[2]                            //總序號
+                    +','+_DtlfResult[3]                            //同療日期/出院日
                     ,'D:\ym_source\cch\bin\mark\Over_10YearCT_Exam_Data_Export\log-normal.csv');
               end else
               begin
                 Inc(err_sn);
-                log_msg({i2s(err_sn)
-                    +','+}Copy(i2s(IXR1.DATE),0,5)
+                log_msg(i2s(err_sn)
+                    +','+Copy(i2s(IXR1.DATE),0,5)
                     +','+get_pt_type(ixr1.PT_TYPE)
                     +','+IXR1.INP_OPD
                     +','+i2s(IXR1.date)
@@ -281,8 +329,8 @@ begin
                     +','+iwl.ACCESS_NO
                     +','+IWL.modality
                     +','+ixr1.DUPLICATE_NO
-                    //+','+i2s(IXR1.seq)
-                    //+','+i2s(iwl.err)
+                    +','+i2s(IXR1.seq)
+                    +','+i2s(iwl.err)
                     +','+_DtlfResult[0]
                     +','+_DtlfResult[1]
                     +','+_DtlfResult[2]
@@ -331,17 +379,20 @@ begin
     begin
       IDA.CHART_NO := PatientID;
       IDA.OPD_DATE := s2i(Copy(i2s(ExamDate),1,5)+'01');
-      IDA.DUPLICATE_NO := DuplicateNo;
+      //IDA.DUPLICATE_NO := DuplicateNo;
       SETKEYNO(IDA.DRIVE,IDA.FD,1);
       READ_IDTLFA(IDA,17);
-      while (IDA.ERR = 0) and(IDA.CHART_NO = PatientID) do
+      while (IDA.ERR = 0) and (IDA.CHART_NO = PatientID) do
       begin
-        if (IDA.OPD_DATE >= OPDate) and (IDA.OPD_DATE <= ExamDate) then
-        begin
+        if (IDA.OPD_DATE >= OPDate) and (IDA.OPD_DATE <= ExamDate)
+        or (IDA.CURE_END_DATE >= ExamDate)
+        then begin
           Result[0] := IDA.REPORT_CLASS;
           Result[1] := IDA.CASE_TYPE;
           Result[2] := i2s(IDA.TOTAL_SEQ);
-          Result[3] := i2s(IDA.CURE_END_DATE);
+          if (IDA.CURE_END_DATE = 0)
+          then Result[3] := '無同療合併日期'
+          else Result[3] := i2s(IDA.CURE_END_DATE);
         end;
         READ_IDTLFA(IDA,2);
       end;
@@ -349,7 +400,7 @@ begin
     else if PatientSource = 'I' then
     begin
       MDB.CHART_NO := PatientID;
-      MDB.DUPLICATE_NO := DuplicateNo;
+      //MDB.DUPLICATE_NO := DuplicateNo;
       SETKEYNO(MDB.DRIVE,MDB.FD,1);
       READ_MDTLFB(MDB,17);
       if (MDB.CHART_NO = PatientID) then
@@ -378,6 +429,11 @@ begin
   READ_IPRICE_COMP18(IPC);
   if IPC.ERR = 0
   then Result := IPC.CORR_CODE[4];
+end;
+
+function SearchData.ConfirmForTheSameTreatment(PatientSource,PatientID,OrderDate,ExamDate:string) :string;
+begin
+  (*暫無資料*)
 end;
 
 end.

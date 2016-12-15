@@ -41,13 +41,15 @@ var
   mm      :string;
   CHNL_NO :string;
   DisplayData : SearchData;
+  _SpendTimer : Cardinal;
 begin
   try
-    if fileexists('D:\ym_source\cch\bin\mark\Output_Old_CT_Exam_Data\log-normal.csv')
-    or fileexists('D:\ym_source\cch\bin\mark\Output_Old_CT_Exam_Data\log-error.csv')
+    _SpendTimer := GetTickCount;
+    if fileexists('D:\ym_source\cch\bin\mark\Over_10YearCT_Exam_Data_Export\log-normal.csv')
+    or fileexists('D:\ym_source\cch\bin\mark\Over_10YearCT_Exam_Data_Export\log-error.csv')
     then begin
-      DeleteFile('D:\ym_source\cch\bin\mark\Output_Old_CT_Exam_Data\log-normal.csv');
-      DeleteFile('D:\ym_source\cch\bin\mark\Output_Old_CT_Exam_Data\log-error.csv');
+      DeleteFile('D:\ym_source\cch\bin\mark\Over_10YearCT_Exam_Data_Export\log-normal.csv');
+      DeleteFile('D:\ym_source\cch\bin\mark\Over_10YearCT_Exam_Data_Export\log-error.csv');
     end;
     btnSearch_XR2.Enabled := False;
     stat1.Panels[0].Text:='搜尋中...';
@@ -65,7 +67,8 @@ begin
     end;
     DisplayData := SearchData.Create;
     DisplayData.UpdateClientDataSet(cds1,yyy,mm,CHNL_NO);
-    stat1.Panels[0].Text:='完成!';
+
+    stat1.Panels[0].Text:='完成! 共花費'+i2s((GetTickCount - _SpendTimer)/1000)+'秒';
   finally
     btnSearch_XR2.Enabled := True;
   end;

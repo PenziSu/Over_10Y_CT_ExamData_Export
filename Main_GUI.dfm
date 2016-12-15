@@ -1,6 +1,6 @@
 object Form1: TForm1
-  Left = 227
-  Top = 206
+  Left = 203
+  Top = 162
   ActiveControl = rg1
   BorderStyle = bsDialog
   Caption = '每月CT儀器檢查清單'
